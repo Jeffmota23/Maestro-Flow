@@ -1,20 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { Order, OrderStatus } from '../types';
-import { CheckCircle, Clock, FileUp, Filter, Users, LayoutDashboard, DollarSign, FileText, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Clock, FileUp, Filter, Users, DollarSign, FileText, ArrowLeft, TrendingUp } from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<OrderStatus | 'All'>('All');
 
   useEffect(() => {
-    // Load simulated data
     const mockOrders: Order[] = [
       {
         id: 'ORD-001',
         userId: 'u1',
         userEmail: 'maestro.john@orchestra.com',
-        // Added missing currency property to OrderItem
         items: [{ serviceId: 'full-orch', serviceName: 'Full Orchestration', price: 350, currency: '$' }],
         status: OrderStatus.IN_PROGRESS,
         createdAt: '2023-10-25'
@@ -23,7 +21,6 @@ const AdminDashboard: React.FC = () => {
         id: 'ORD-002',
         userId: 'u2',
         userEmail: 'sarah.piano@gmail.com',
-        // Added missing currency property to OrderItem
         items: [{ serviceId: 'lead-sheet', serviceName: 'Lead Sheet', price: 45, currency: '$' }],
         status: OrderStatus.PENDING,
         createdAt: '2023-10-26'
@@ -32,7 +29,6 @@ const AdminDashboard: React.FC = () => {
         id: 'ORD-003',
         userId: 'u3',
         userEmail: 'bob.jazz@me.com',
-        // Added missing currency property to OrderItem
         items: [{ serviceId: 'musescore-engraving', serviceName: 'MuseScore Engraving', price: 60, currency: '$' }],
         status: OrderStatus.DELIVERED,
         createdAt: '2023-10-20',
@@ -47,10 +43,9 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleFileUpload = (orderId: string) => {
-    // Simulation of file upload with restricted types
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.mscz,.pdf'; // Strict filter for music professional formats
+    input.accept = '.mscz,.pdf';
     input.onchange = (e: any) => {
       const file = e.target.files[0];
       if (file) {
@@ -66,7 +61,6 @@ const AdminDashboard: React.FC = () => {
 
   const filteredOrders = filter === 'All' ? orders : orders.filter(o => o.status === filter);
 
-  // Dynamic Revenue Calculation
   const totalRevenue = orders
     .filter(o => o.status === OrderStatus.DELIVERED)
     .reduce((sum, order) => sum + order.items.reduce((itemSum, item) => itemSum + item.price, 0), 0);
@@ -102,7 +96,6 @@ const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
           <div className="flex items-center space-x-3 text-slate-400 mb-3">
@@ -127,14 +120,13 @@ const AdminDashboard: React.FC = () => {
         </div>
         <div className="bg-white p-8 rounded-3xl border border-indigo-100 shadow-xl shadow-indigo-50/50">
           <div className="flex items-center space-x-3 text-slate-400 mb-3">
-            <DollarSign className="w-5 h-5 text-indigo-600" />
+            <TrendingUp className="w-5 h-5 text-indigo-600" />
             <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">Total Revenue</span>
           </div>
           <span className="text-4xl font-bold text-indigo-600">${totalRevenue.toLocaleString()}</span>
         </div>
       </div>
 
-      {/* Order Management Table */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">

@@ -1,0 +1,7 @@
+{
+  "name": "MaestroFlow - Music Technical Services",
+  "description": "Professional music transcription, orchestration, and engraving platform with client dashboards and administrative order management.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

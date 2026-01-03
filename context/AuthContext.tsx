@@ -24,7 +24,6 @@ const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
 interface AuthContextType {
   user: User | null;
-  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<{ mfaRequired: boolean }>;
   verifyMfa: (code: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string) => Promise<void>;
@@ -84,33 +83,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const signInWithGoogle = async () => {
-    if (!supabase) throw new Error("Configuração real do Supabase não detectada.");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { 
-        redirectTo: window.location.origin,
-        queryParams: { access_type: 'offline', prompt: 'consent' }
-      }
-    });
-    if (error) throw error;
-  };
-
   const signInWithEmail = async (email: string, pass: string): Promise<{ mfaRequired: boolean }> => {
     if (supabase) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
       if (error) throw error;
       
-      // Check if MFA is required (Supabase MFA flow)
+      // Check if MFA is required in real Supabase flow
       if (data?.session?.user?.factors) {
-        // Real MFA check
         return { mfaRequired: true };
       }
       
       handleUserSession(data.user);
       return { mfaRequired: false };
     } else {
-      // Simulation: Always ask for Authenticator for "admin" accounts to show the UI
+      // Simulation: Ask for Authenticator code for accounts with "admin" in email
       if (email.includes('admin')) {
         return { mfaRequired: true };
       }
@@ -121,15 +107,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const verifyMfa = async (code: string) => {
     if (supabase) {
-      // Supabase MFA challenge logic here (simplified)
       const { data, error } = await supabase.auth.mfa.challengeAndVerify({
         code,
-        factorId: 'totp-factor-id' // would be retrieved from previous step
+        factorId: 'totp-factor-id'
       });
       if (error) throw error;
       handleUserSession(data.user);
     } else {
-      // Simulation verification
       if (code === '123456') {
         signInDemo('admin');
       } else {
@@ -172,7 +156,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{ 
       user, 
-      signInWithGoogle, 
       signInWithEmail, 
       signUpWithEmail, 
       signInDemo,

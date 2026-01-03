@@ -5,7 +5,7 @@ import { useTranslation } from '../context/LanguageContext.tsx';
 import { ArrowLeft, Loader2, AlertCircle, Mail, Lock, ShieldCheck, User as UserIcon, Sparkles, KeyRound } from 'lucide-react';
 
 const AuthForm: React.FC = () => {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, verifyMfa, signInDemo, isConfigured, user } = useAuth();
+  const { signInWithEmail, signUpWithEmail, verifyMfa, signInDemo, isConfigured, user } = useAuth();
   const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [showMfa, setShowMfa] = useState(false);
@@ -59,21 +59,6 @@ const AuthForm: React.FC = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    if (!isConfigured) {
-      setError("Ative as chaves VITE_SUPABASE_URL na Vercel para usar o Google OAuth real.");
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      await signInWithGoogle();
-    } catch (err: any) {
-      setError(err.message || "Falha no login com Google.");
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-[85vh] flex flex-col items-center justify-center px-4 py-16 bg-white">
       <div className="max-w-md w-full mb-8">
@@ -109,7 +94,7 @@ const AuthForm: React.FC = () => {
               <h2 className="text-4xl font-black text-slate-900 font-serif mb-2 tracking-tight">
                 {isLogin ? "Maestro Hub" : t('createAccount')}
               </h2>
-              <p className="text-slate-500 font-medium text-xs">Acesso profissional com Google e Authenticator.</p>
+              <p className="text-slate-500 font-medium text-xs">Login seguro via e-mail e Google Authenticator.</p>
             </div>
 
             {error && (
@@ -118,20 +103,6 @@ const AuthForm: React.FC = () => {
                 <p className="font-bold leading-relaxed">{error}</p>
               </div>
             )}
-
-            <button 
-              onClick={handleGoogleLogin}
-              disabled={isLoading}
-              className="w-full flex items-center justify-center space-x-4 px-6 py-4 border-2 border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-indigo-100 transition-all mb-8 font-bold text-slate-700 relative group active:scale-95"
-            >
-              <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" className="w-5 h-5 group-hover:scale-110 transition-transform" alt="Google" />
-              <span>{isLoading ? 'Conectando...' : 'Entrar com Conta Google'}</span>
-            </button>
-
-            <div className="relative mb-8 text-center">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
-              <span className="relative px-4 bg-white text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">ou via e-mail</span>
-            </div>
 
             <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
               <div className="space-y-2">

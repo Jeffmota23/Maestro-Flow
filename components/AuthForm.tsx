@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useTranslation } from '../context/LanguageContext.tsx';
-import { ArrowLeft, Loader2, AlertCircle, Mail, Lock } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Mail, Lock, ZapOff, Info, ShieldCheck, User as UserIcon, Sparkles } from 'lucide-react';
 
 const AuthForm: React.FC = () => {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, isConfigured, user } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInDemo, isConfigured, user } = useAuth();
   const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -25,24 +25,27 @@ const AuthForm: React.FC = () => {
     setError(null);
     
     try {
-      if (!isConfigured) {
-        throw new Error("Configuração ausente: Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no painel da Vercel.");
-      }
       if (isLogin) {
         await signInWithEmail(email, password);
       } else {
         await signUpWithEmail(email, password);
-        setError("Conta criada! Verifique seu e-mail para confirmar o cadastro.");
+        if (isConfigured) {
+          setError("Conta criada! Verifique seu e-mail para confirmar.");
+        }
       }
     } catch (err: any) {
       console.error("Auth Error:", err);
-      setError(err.message || "Erro de autenticação. Verifique suas credenciais.");
+      setError(err.message || "Erro de autenticação.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
+    if (!isConfigured) {
+      setError("O Login com Google exige chaves reais da Vercel.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -71,12 +74,41 @@ const AuthForm: React.FC = () => {
       <div className="max-w-md w-full bg-white p-10 md:p-12 rounded-[3.5rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.08)] border border-slate-100 ring-1 ring-slate-100 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 rounded-full -mr-16 -mt-16 blur-3xl"></div>
         
-        <div className="text-center mb-12 relative z-10">
-          <h2 className="text-4xl font-black text-slate-900 font-serif mb-3 tracking-tight">
+        {/* Demo Quick Access Section */}
+        <div className="mb-10 relative z-10">
+          <div className="flex items-center space-x-2 mb-6">
+            <div className="h-px bg-slate-100 flex-grow"></div>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 flex items-center">
+              <Sparkles className="w-3 h-3 mr-2 text-indigo-500" />
+              Acesso Rápido Maestro
+            </span>
+            <div className="h-px bg-slate-100 flex-grow"></div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <button 
+              onClick={() => signInDemo('admin')}
+              className="flex flex-col items-center justify-center p-4 bg-slate-900 text-white rounded-3xl hover:bg-indigo-600 transition-all shadow-xl group"
+            >
+              <ShieldCheck className="w-6 h-6 mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Painel Admin</span>
+            </button>
+            <button 
+              onClick={() => signInDemo('client')}
+              className="flex flex-col items-center justify-center p-4 bg-white border-2 border-slate-100 text-slate-600 rounded-3xl hover:border-indigo-600 hover:text-indigo-600 transition-all group shadow-sm"
+            >
+              <UserIcon className="w-6 h-6 mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Acesso Cliente</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="text-center mb-10 relative z-10">
+          <h2 className="text-4xl font-black text-slate-900 font-serif mb-2 tracking-tight">
             {isLogin ? t('welcome') : t('createAccount')}
           </h2>
-          <p className="text-slate-500 font-medium text-sm">
-            Ambiente Profissional MaestroFlow
+          <p className="text-slate-500 font-medium text-xs">
+            Acesse com suas credenciais ou utilize os botões demo acima.
           </p>
         </div>
 
@@ -90,16 +122,12 @@ const AuthForm: React.FC = () => {
         <button 
           onClick={handleGoogleLogin}
           disabled={isLoading}
-          className={`w-full flex items-center justify-center space-x-4 px-6 py-4 border-2 border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-indigo-100 transition-all mb-8 font-bold text-slate-700 relative group ${isLoading ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+          className={`w-full flex items-center justify-center space-x-4 px-6 py-4 border-2 border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-indigo-100 transition-all mb-8 font-bold text-slate-700 relative group ${isLoading ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'} ${!isConfigured ? 'grayscale opacity-50 cursor-help' : ''}`}
+          title={!isConfigured ? "Requer configuração real" : ""}
         >
           <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" className="w-5 h-5 group-hover:scale-110 transition-transform" alt="Google" />
-          <span>{isLoading ? 'Conectando...' : t('continueGoogle')}</span>
+          <span>{isLoading ? 'Aguarde...' : t('continueGoogle')}</span>
         </button>
-
-        <div className="relative mb-8 text-center">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
-          <span className="relative px-4 bg-white text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Credenciais de Acesso</span>
-        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
           <div className="space-y-2">
@@ -111,7 +139,7 @@ const AuthForm: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="nome@exemplo.com"
+                placeholder="exemplo@maestro.com"
                 disabled={isLoading}
                 className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-600/5 focus:bg-white focus:border-indigo-200 outline-none transition-all font-bold text-slate-700"
               />
@@ -139,12 +167,12 @@ const AuthForm: React.FC = () => {
             className={`w-full py-5 bg-slate-900 text-white font-black rounded-2xl transition-all shadow-xl shadow-slate-200 flex items-center justify-center space-x-3 text-lg ${isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-indigo-600 hover:-translate-y-1 active:scale-95'}`}
           >
             {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-            <span>{isLoading ? 'Processando...' : (isLogin ? t('signIn') : t('createAccount'))}</span>
+            <span>{isLoading ? 'Autenticando...' : (isLogin ? t('signIn') : t('createAccount'))}</span>
           </button>
         </form>
 
         <div className="mt-10 text-center text-sm font-medium text-slate-500">
-          {isLogin ? "Novo por aqui?" : "Já possui acesso?"} 
+          {isLogin ? "Deseja criar conta?" : "Já possui acesso?"} 
           <button 
             onClick={() => { setIsLogin(!isLogin); setError(null); }}
             className="ml-2 text-indigo-600 font-black hover:underline underline-offset-4"

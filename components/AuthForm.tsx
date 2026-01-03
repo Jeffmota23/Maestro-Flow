@@ -2,13 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useTranslation } from '../context/LanguageContext.tsx';
-import { ArrowLeft, Loader2, AlertCircle, Mail, Lock, ShieldCheck, User as UserIcon, Sparkles, KeyRound } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Mail, Lock, ShieldCheck, User as UserIcon, Sparkles, KeyRound, Database } from 'lucide-react';
 
 const AuthForm: React.FC = () => {
   const { signInWithEmail, signUpWithEmail, verifyMfa, signInDemo, isConfigured, user } = useAuth();
   const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [showMfa, setShowMfa] = useState(false);
+  const [currentFactorId, setCurrentFactorId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
@@ -30,13 +31,12 @@ const AuthForm: React.FC = () => {
       if (isLogin) {
         const result = await signInWithEmail(email, password);
         if (result.mfaRequired) {
+          setCurrentFactorId(result.factorId || 'demo');
           setShowMfa(true);
         }
       } else {
         await signUpWithEmail(email, password);
-        if (isConfigured) {
-          setError("Conta criada! Verifique seu e-mail para confirmação e configure o Authenticator no perfil.");
-        }
+        setError("Conta criada com sucesso! Verifique seu e-mail para ativar a conta antes de entrar.");
       }
     } catch (err: any) {
       console.error("Auth Error:", err);
@@ -51,7 +51,7 @@ const AuthForm: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await verifyMfa(mfaCode);
+      await verifyMfa(mfaCode, currentFactorId || '');
     } catch (err: any) {
       setError(err.message || "Código inválido.");
     } finally {
@@ -78,29 +78,45 @@ const AuthForm: React.FC = () => {
         
         {!showMfa ? (
           <>
-            {/* Demo Quick Access - Discreto */}
-            <div className="mb-8 relative z-10 opacity-60 hover:opacity-100 transition-opacity">
+            {/* Demo Quick Access - Para desenvolvedores quando o banco não estiver configurado */}
+            <div className="mb-8 relative z-10">
               <div className="flex items-center space-x-2 mb-4">
-                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300">Fast Access</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300 flex items-center">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Fast Access (Demo)
+                </span>
                 <div className="h-px bg-slate-50 flex-grow"></div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => signInDemo('admin')} className="flex-1 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-900 hover:text-white transition-all">Admin Demo</button>
-                <button onClick={() => signInDemo('client')} className="flex-1 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-900 hover:text-white transition-all">Client Demo</button>
+                <button onClick={() => signInDemo('admin')} className="flex-1 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-indigo-600 transition-all shadow-sm">Admin Demo</button>
+                <button onClick={() => signInDemo('client')} className="flex-1 py-2.5 bg-white border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm">Client Demo</button>
               </div>
             </div>
 
             <div className="text-center mb-10 relative z-10">
               <h2 className="text-4xl font-black text-slate-900 font-serif mb-2 tracking-tight">
-                {isLogin ? "Maestro Hub" : t('createAccount')}
+                {isLogin ? "Maestro Hub" : "Crie seu Acesso"}
               </h2>
-              <p className="text-slate-500 font-medium text-xs">Login seguro via e-mail e Google Authenticator.</p>
+              <p className="text-slate-500 font-medium text-xs">
+                {isConfigured 
+                  ? "Conectado ao banco de dados oficial." 
+                  : "Modo Offline (Chaves Supabase ausentes)."}
+              </p>
             </div>
 
             {error && (
-              <div className="mb-6 p-4 rounded-2xl bg-red-50 text-red-600 border border-red-100 flex items-start space-x-3 text-xs animate-in fade-in zoom-in duration-300">
+              <div className={`mb-6 p-4 rounded-2xl flex items-start space-x-3 text-xs animate-in fade-in zoom-in duration-300 ${error.includes('sucesso') ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
                 <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <p className="font-bold leading-relaxed">{error}</p>
+              </div>
+            )}
+
+            {!isConfigured && isLogin && (
+              <div className="mb-8 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center space-x-3">
+                <Database className="w-5 h-5 text-amber-500" />
+                <p className="text-[10px] font-bold text-amber-700 leading-tight">
+                  Atenção: Credenciais de e-mail requerem configuração de API. Use os botões demo acima para testar agora.
+                </p>
               </div>
             )}
 
@@ -135,14 +151,14 @@ const AuthForm: React.FC = () => {
                 className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl transition-all shadow-xl shadow-slate-200 flex items-center justify-center space-x-3 text-lg hover:bg-indigo-600 hover:-translate-y-1 active:scale-95 disabled:opacity-50"
               >
                 {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-                <span>{isLoading ? 'Autenticando...' : (isLogin ? 'Entrar no Hub' : 'Criar Acesso')}</span>
+                <span>{isLoading ? 'Autenticando...' : (isLogin ? 'Entrar no Hub' : 'Confirmar Cadastro')}</span>
               </button>
             </form>
 
             <div className="mt-10 text-center text-sm font-medium text-slate-500">
-              {isLogin ? "Novo por aqui?" : "Já possui conta?"} 
+              {isLogin ? "Não possui conta?" : "Já é cadastrado?"} 
               <button 
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => { setIsLogin(!isLogin); setError(null); }}
                 className="ml-2 text-indigo-600 font-black hover:underline underline-offset-4"
               >
                 {isLogin ? 'Registrar Agora' : 'Voltar ao Login'}
@@ -156,7 +172,7 @@ const AuthForm: React.FC = () => {
                 <ShieldCheck className="w-10 h-10" />
               </div>
               <h2 className="text-3xl font-black text-slate-900 font-serif mb-2">Google Authenticator</h2>
-              <p className="text-slate-500 font-medium text-xs px-6">Insira o código de 6 dígitos gerado no seu aplicativo para confirmar sua identidade.</p>
+              <p className="text-slate-500 font-medium text-xs px-6">Insira o código de 6 dígitos gerado no seu dispositivo.</p>
             </div>
 
             {error && (
@@ -172,7 +188,7 @@ const AuthForm: React.FC = () => {
                   <KeyRound className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300" />
                   <input 
                     type="text" maxLength={6} required value={mfaCode} onChange={(e) => setMfaCode(e.target.value)}
-                    placeholder="000 000"
+                    placeholder="000000"
                     autoFocus
                     className="w-full pl-16 pr-8 py-6 bg-slate-50 border border-slate-100 rounded-[2rem] focus:ring-4 focus:ring-indigo-600/5 focus:bg-white focus:border-indigo-200 outline-none transition-all font-black text-slate-800 text-3xl tracking-[0.3em] text-center"
                   />
@@ -184,22 +200,16 @@ const AuthForm: React.FC = () => {
                 className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-100 flex items-center justify-center space-x-3 text-lg hover:bg-indigo-700 hover:-translate-y-1 active:scale-95 disabled:opacity-50"
               >
                 {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-                <span>{isLoading ? 'Verificando...' : 'Confirmar Acesso'}</span>
+                <span>Verificar Identidade</span>
               </button>
 
               <button 
                 type="button" onClick={() => setShowMfa(false)}
                 className="w-full py-4 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-600 transition-colors"
               >
-                Voltar para Login
+                Cancelar e Voltar
               </button>
             </form>
-            
-            {!isConfigured && (
-              <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 text-[10px] text-amber-700 font-bold uppercase tracking-tighter text-center">
-                Dica Demo: Use o código "123456" para simular o Authenticator.
-              </div>
-            )}
           </div>
         )}
       </div>

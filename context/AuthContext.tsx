@@ -24,8 +24,8 @@ const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
 interface AuthContextType {
   user: User | null;
-  signInWithEmail: (email: string, pass: string) => Promise<{ mfaRequired: boolean }>;
-  verifyMfa: (code: string) => Promise<void>;
+  signInWithEmail: (email: string, pass: string) => Promise<{ mfaRequired: boolean; factorId?: string }>;
+  verifyMfa: (code: string, factorId: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string) => Promise<void>;
   signInDemo: (role: 'admin' | 'client') => void;
   logout: () => Promise<void>;
@@ -42,7 +42,7 @@ if (isConfigured) {
   try {
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } catch (e) {
-    console.warn("Supabase initialization failed.");
+    console.error("Supabase initialization failed.");
   }
 }
 
@@ -67,7 +67,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (supabase) {
-      supabase.auth.getSession().then(({ data: { session } }: any) => {
+      supabase.auth.getSession().then(({ data: { session }, error }: any) => {
+        if (error) console.error("Session fetch error:", error);
         handleUserSession(session?.user ?? null);
         setLoading(false);
       });
@@ -83,63 +84,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const signInWithEmail = async (email: string, pass: string): Promise<{ mfaRequired: boolean }> => {
-    if (supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
-      if (error) throw error;
-      
-      // Check if MFA is required in real Supabase flow
-      if (data?.session?.user?.factors) {
-        return { mfaRequired: true };
-      }
-      
-      handleUserSession(data.user);
-      return { mfaRequired: false };
-    } else {
-      // Simulation: Ask for Authenticator code for accounts with "admin" in email
-      if (email.includes('admin')) {
-        return { mfaRequired: true };
-      }
-      signInDemo('client');
-      return { mfaRequired: false };
+  const signInWithEmail = async (email: string, pass: string): Promise<{ mfaRequired: boolean; factorId?: string }> => {
+    if (!supabase) {
+      throw new Error("Sistema em modo demonstração. Utilize os botões 'Fast Access' para testar, pois as chaves do banco (Supabase) não foram detectadas.");
     }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    
+    if (error) {
+      // Aqui o Supabase retorna erro real se o e-mail ou senha estiverem errados
+      throw new Error("Credenciais inválidas. Verifique seu e-mail e senha no banco de dados.");
+    }
+    
+    // Verificar se o usuário tem MFA habilitado (TOTP/Google Authenticator)
+    const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+    if (factorsError) throw factorsError;
+
+    const totpFactor = factors.totp.find((f: any) => f.status === 'verified');
+    
+    if (totpFactor) {
+      return { mfaRequired: true, factorId: totpFactor.id };
+    }
+    
+    handleUserSession(data.user);
+    return { mfaRequired: false };
   };
 
-  const verifyMfa = async (code: string) => {
-    if (supabase) {
-      const { data, error } = await supabase.auth.mfa.challengeAndVerify({
-        code,
-        factorId: 'totp-factor-id'
-      });
-      if (error) throw error;
-      handleUserSession(data.user);
-    } else {
+  const verifyMfa = async (code: string, factorId: string) => {
+    if (!supabase) {
       if (code === '123456') {
         signInDemo('admin');
-      } else {
-        throw new Error("Código do Google Authenticator inválido.");
+        return;
       }
+      throw new Error("Código demo inválido. Use 123456.");
     }
+
+    const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+      code,
+      factorId: factorId
+    });
+    
+    if (error) throw new Error("Código do Authenticator inválido ou expirado.");
+    handleUserSession(data.user);
   };
 
   const signUpWithEmail = async (email: string, pass: string) => {
-    if (supabase) {
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
-        password: pass,
-        options: { data: { role: email.includes('admin') ? 'admin' : 'client' } }
-      });
-      if (error) throw error;
-      if (data.user) handleUserSession(data.user);
-    } else {
-      signInDemo('client');
-    }
+    if (!supabase) throw new Error("Configuração do Supabase necessária para registro real.");
+    
+    const { data, error } = await supabase.auth.signUp({ 
+      email, 
+      password: pass,
+      options: { data: { role: email.includes('admin') ? 'admin' : 'client' } }
+    });
+    if (error) throw error;
   };
 
   const signInDemo = (role: 'admin' | 'client') => {
     const demoUser: User = {
       id: `demo-${role}`,
-      email: `${role}@maestroflow.com`,
+      email: `${role}@maestroflow.demo`,
       role: role,
       name: role === 'admin' ? 'Maestro Admin' : 'John Doe Client'
     };

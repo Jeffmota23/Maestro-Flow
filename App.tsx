@@ -7,13 +7,15 @@ import ClientDashboard from './components/ClientDashboard.tsx';
 import StartProject from './components/StartProject.tsx';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import { CartProvider, useCart } from './context/CartContext.tsx';
+import { ServiceProvider, useServices } from './context/ServiceContext.tsx';
 import { LanguageProvider, useTranslation } from './context/LanguageContext.tsx';
-import { SERVICES, APP_NAME, PAYMENT_METHODS } from './constants.tsx';
+import { APP_NAME, PAYMENT_METHODS } from './constants.tsx';
 import { ShoppingBag, ChevronRight, Music, Check, Star, Loader2, Award, Zap, Shield, ArrowLeft, CreditCard } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
   const { addToCart } = useCart();
   const { t, language } = useTranslation();
+  const { services } = useServices();
   
   return (
     <div className="space-y-24 pb-24">
@@ -61,7 +63,7 @@ const LandingPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {SERVICES.map((service) => (
+          {services.map((service) => (
             <div key={service.id} className="group bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl hover:shadow-2xl hover:-translate-y-3 transition-all duration-700 flex flex-col h-full ring-1 ring-slate-100/50">
               <div className="p-5 bg-slate-50 rounded-3xl w-fit mb-10 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500 shadow-inner">
                 <Music className="w-8 h-8" />
@@ -221,15 +223,17 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <CartProvider>
-          <div className="min-h-screen bg-white flex flex-col font-sans">
-            <Navbar />
-            <main className="flex-grow">{renderContent()}</main>
-            <footer className="bg-slate-900 text-slate-500 py-12 text-center text-[10px] font-black uppercase tracking-[0.4em]">
-              © 2024 MaestroFlow Technical Hub
-            </footer>
-          </div>
-        </CartProvider>
+        <ServiceProvider>
+          <CartProvider>
+            <div className="min-h-screen bg-white flex flex-col font-sans">
+              <Navbar />
+              <main className="flex-grow">{renderContent()}</main>
+              <footer className="bg-slate-900 text-slate-500 py-12 text-center text-[10px] font-black uppercase tracking-[0.4em]">
+                © 2024 MaestroFlow Technical Hub
+              </footer>
+            </div>
+          </CartProvider>
+        </ServiceProvider>
       </LanguageProvider>
     </AuthProvider>
   );

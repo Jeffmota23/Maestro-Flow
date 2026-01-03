@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-import { useCart } from '../context/CartContext';
-import { SERVICES } from '../constants';
-import { useTranslation } from '../context/LanguageContext';
+import { useCart } from '../context/CartContext.tsx';
+import { useServices } from '../context/ServiceContext.tsx';
+import { useTranslation } from '../context/LanguageContext.tsx';
 import { ArrowLeft, ArrowRight, Music, FileText, Clock, Sparkles, CheckCircle2 } from 'lucide-react';
 
 const StartProject: React.FC = () => {
   const { addToCart } = useCart();
+  const { services } = useServices();
   const { t, language } = useTranslation();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -14,14 +15,14 @@ const StartProject: React.FC = () => {
     composer: '',
     duration: '',
     notes: '',
-    serviceId: SERVICES[0].id
+    serviceId: services[0]?.id || ''
   });
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, 3));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
   const handleFinish = () => {
-    const selectedService = SERVICES.find(s => s.id === formData.serviceId);
+    const selectedService = services.find(s => s.id === formData.serviceId);
     if (selectedService) {
       addToCart(selectedService);
       window.location.hash = '#/checkout';
@@ -50,7 +51,6 @@ const StartProject: React.FC = () => {
         <h1 className="text-5xl font-black text-slate-900 font-serif mb-6">{t('startProject')}</h1>
         <p className="text-slate-500 text-lg font-medium">Standardize your production requirements for conservatory-grade output.</p>
         
-        {/* Progress Bar */}
         <div className="mt-14 flex items-center justify-between relative px-4">
           <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 -translate-y-1/2 z-0 rounded-full"></div>
           <div 
@@ -73,7 +73,7 @@ const StartProject: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-[4rem] border border-slate-100 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.1)] p-12 md:p-24 min-h-[550px] flex flex-col ring-1 ring-slate-100">
+      <div className="bg-white rounded-[4rem] border border-slate-100 shadow-2xl p-12 md:p-24 min-h-[550px] flex flex-col ring-1 ring-slate-100">
         {step === 1 && (
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
             <h2 className="text-4xl font-bold text-slate-900 font-serif">Metadata</h2>
@@ -106,10 +106,10 @@ const StartProject: React.FC = () => {
           <div className="space-y-10 animate-in fade-in slide-in-from-right-8 duration-700">
             <h2 className="text-4xl font-bold text-slate-900 font-serif">{t('musicalScope')}</h2>
             <div className="space-y-4">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Estimated Duration (Timmings)</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Estimated Duration</label>
               <input 
                 type="text" 
-                placeholder="e.g. 05:45"
+                placeholder="05:45"
                 className="w-full px-8 py-6 bg-slate-50 border border-slate-100 rounded-[2rem] focus:ring-4 focus:ring-indigo-600/10 focus:bg-white outline-none transition-all font-bold text-slate-700 text-lg shadow-inner"
                 value={formData.duration}
                 onChange={e => setFormData({...formData, duration: e.target.value})}
@@ -119,7 +119,6 @@ const StartProject: React.FC = () => {
               <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Technical Specifications</label>
               <textarea 
                 rows={4}
-                placeholder="List required instrumentation or specific layout needs (A3, B4, US Letter)..."
                 className="w-full px-8 py-6 bg-slate-50 border border-slate-100 rounded-[2rem] focus:ring-4 focus:ring-indigo-600/10 focus:bg-white outline-none transition-all resize-none font-bold text-slate-700 shadow-inner"
                 value={formData.notes}
                 onChange={e => setFormData({...formData, notes: e.target.value})}
@@ -132,7 +131,7 @@ const StartProject: React.FC = () => {
           <div className="space-y-10 animate-in fade-in slide-in-from-right-8 duration-700">
             <h2 className="text-4xl font-bold text-slate-900 font-serif">{t('selectService')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {SERVICES.map(s => (
+              {services.map(s => (
                 <button
                   key={s.id}
                   onClick={() => setFormData({...formData, serviceId: s.id})}
@@ -162,28 +161,14 @@ const StartProject: React.FC = () => {
             <span>Previous</span>
           </button>
           
-          {step < 3 ? (
-            <button
-              onClick={nextStep}
-              className="px-14 py-6 bg-slate-900 text-white font-black rounded-3xl hover:bg-indigo-600 hover:-translate-y-2 transition-all flex items-center space-x-4 shadow-2xl active:scale-95 text-lg uppercase tracking-widest"
-            >
-              <span>Continue</span>
-              <ArrowRight className="w-6 h-6" />
-            </button>
-          ) : (
-            <button
-              onClick={handleFinish}
-              className="px-14 py-6 bg-indigo-600 text-white font-black rounded-3xl hover:bg-indigo-700 hover:-translate-y-2 transition-all flex items-center space-x-4 shadow-2xl shadow-indigo-600/20 active:scale-95 text-lg uppercase tracking-widest"
-            >
-              <span>Commit Project</span>
-              <CheckCircle2 className="w-7 h-7" />
-            </button>
-          )}
+          <button
+            onClick={step < 3 ? nextStep : handleFinish}
+            className={`px-14 py-6 text-white font-black rounded-3xl transition-all flex items-center space-x-4 shadow-2xl active:scale-95 text-lg uppercase tracking-widest ${step < 3 ? 'bg-slate-900 hover:bg-indigo-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+          >
+            <span>{step < 3 ? 'Continue' : 'Commit Project'}</span>
+            {step < 3 ? <ArrowRight className="w-6 h-6" /> : <CheckCircle2 className="w-7 h-7" />}
+          </button>
         </div>
-      </div>
-
-      <div className="mt-16 text-center text-slate-300 text-[10px] font-black uppercase tracking-[0.5em]">
-        Standardization Phase {step} / 3
       </div>
     </div>
   );

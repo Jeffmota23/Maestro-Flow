@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types.ts';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 const getEnvVar = (key: string): string => {
   const providers = [
@@ -25,7 +25,8 @@ const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
 interface AuthContextType {
   user: User | null;
   signInWithGoogle: () => Promise<void>;
-  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signInWithEmail: (email: string, pass: string) => Promise<{ mfaRequired: boolean }>;
+  verifyMfa: (code: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string) => Promise<void>;
   signInDemo: (role: 'admin' | 'client') => void;
   logout: () => Promise<void>;
@@ -42,7 +43,7 @@ if (isConfigured) {
   try {
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } catch (e) {
-    console.warn("Supabase initialization failed, using mock.");
+    console.warn("Supabase initialization failed.");
   }
 }
 
@@ -55,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       return;
     }
-    const role = supabaseUser.email?.includes('admin') ? 'admin' : 'client';
+    const role = supabaseUser.email?.includes('admin') || supabaseUser.user_metadata?.role === 'admin' ? 'admin' : 'client';
     const newUser: User = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
@@ -84,29 +85,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithGoogle = async () => {
-    if (!isConfigured) throw new Error("Configuração real necessária para Google OAuth.");
-    await supabase.auth.signInWithOAuth({
+    if (!supabase) throw new Error("Configuração real do Supabase não detectada.");
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin }
+      options: { 
+        redirectTo: window.location.origin,
+        queryParams: { access_type: 'offline', prompt: 'consent' }
+      }
     });
+    if (error) throw error;
   };
 
-  const signInWithEmail = async (email: string, pass: string) => {
+  const signInWithEmail = async (email: string, pass: string): Promise<{ mfaRequired: boolean }> => {
     if (supabase) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
       if (error) throw error;
+      
+      // Check if MFA is required (Supabase MFA flow)
+      if (data?.session?.user?.factors) {
+        // Real MFA check
+        return { mfaRequired: true };
+      }
+      
+      handleUserSession(data.user);
+      return { mfaRequired: false };
+    } else {
+      // Simulation: Always ask for Authenticator for "admin" accounts to show the UI
+      if (email.includes('admin')) {
+        return { mfaRequired: true };
+      }
+      signInDemo('client');
+      return { mfaRequired: false };
+    }
+  };
+
+  const verifyMfa = async (code: string) => {
+    if (supabase) {
+      // Supabase MFA challenge logic here (simplified)
+      const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+        code,
+        factorId: 'totp-factor-id' // would be retrieved from previous step
+      });
+      if (error) throw error;
       handleUserSession(data.user);
     } else {
-      // Simulação de login por e-mail se o supabase não estiver configurado
-      signInDemo(email.includes('admin') ? 'admin' : 'client');
+      // Simulation verification
+      if (code === '123456') {
+        signInDemo('admin');
+      } else {
+        throw new Error("Código do Google Authenticator inválido.");
+      }
     }
   };
 
   const signUpWithEmail = async (email: string, pass: string) => {
     if (supabase) {
-      const { data, error } = await supabase.auth.signUp({ email, password: pass });
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password: pass,
+        options: { data: { role: email.includes('admin') ? 'admin' : 'client' } }
+      });
       if (error) throw error;
-      handleUserSession(data.user);
+      if (data.user) handleUserSession(data.user);
     } else {
       signInDemo('client');
     }
@@ -114,8 +154,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInDemo = (role: 'admin' | 'client') => {
     const demoUser: User = {
-      id: `demo-${role}-${Math.random().toString(36).substr(2, 9)}`,
-      email: `${role}@maestroflow.demo`,
+      id: `demo-${role}`,
+      email: `${role}@maestroflow.com`,
       role: role,
       name: role === 'admin' ? 'Maestro Admin' : 'John Doe Client'
     };
@@ -136,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signInWithEmail, 
       signUpWithEmail, 
       signInDemo,
+      verifyMfa,
       logout, 
       loading, 
       isConfigured 

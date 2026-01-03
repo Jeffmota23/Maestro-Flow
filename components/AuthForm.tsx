@@ -1,21 +1,23 @@
 
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useTranslation } from '../context/LanguageContext';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.tsx';
+import { useTranslation } from '../context/LanguageContext.tsx';
+import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 
 const AuthForm: React.FC = () => {
-  const { login, signInWithGoogle } = useAuth();
+  const { login, signInWithGoogle, isConfigured } = useAuth();
   const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsEmailLoading(true);
+    setError(null);
     
     // Simulate API latency for email login
     setTimeout(() => {
@@ -28,17 +30,16 @@ const AuthForm: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
+    setError(null);
     try {
-      await signInWithGoogle();
-      // If we are using redirect flow, the page will reload
-      // If simulated or popup, we handle transition
-      if (window.location.hash === '#/login') {
-         window.location.hash = '#/dashboard';
+      if (!isConfigured) {
+        throw new Error("Missing Supabase Keys in Vercel. Please check your Environment Variables.");
       }
-    } catch (error) {
-      console.error("Authentication Error:", error);
-      alert("Falha na autenticação com Google. Verifique as configurações do Supabase.");
-    } finally {
+      await signInWithGoogle();
+      // Redirection is handled by Supabase OAuth flow
+    } catch (err: any) {
+      console.error("Authentication Error:", err);
+      setError(err.message || "Failed to connect to Google. Check Supabase settings.");
       setIsGoogleLoading(false);
     }
   };
@@ -70,6 +71,13 @@ const AuthForm: React.FC = () => {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start space-x-3 text-red-600 text-xs animate-in fade-in zoom-in duration-300">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <p className="font-bold leading-relaxed">{error}</p>
+          </div>
+        )}
+
         <button 
           onClick={handleGoogleLogin}
           disabled={isGoogleLoading || isEmailLoading}
@@ -80,7 +88,7 @@ const AuthForm: React.FC = () => {
           ) : (
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/smartlock/google.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" alt="Google" />
           )}
-          <span>{isGoogleLoading ? 'Connecting...' : t('continueGoogle')}</span>
+          <span>{isGoogleLoading ? 'Redirecting to Google...' : t('continueGoogle')}</span>
         </button>
 
         <div className="relative mb-8">

@@ -13,7 +13,6 @@ const AuthForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Redirecionamento automático se já estiver logado
   useEffect(() => {
     if (user) {
       window.location.hash = user.role === 'admin' ? '#/admin' : '#/dashboard';
@@ -26,15 +25,18 @@ const AuthForm: React.FC = () => {
     setError(null);
     
     try {
+      if (!isConfigured) {
+        throw new Error("Configuração ausente: Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no painel da Vercel.");
+      }
       if (isLogin) {
         await signInWithEmail(email, password);
       } else {
         await signUpWithEmail(email, password);
-        setError("Account created! Please check your email for confirmation link.");
+        setError("Conta criada! Verifique seu e-mail para confirmar o cadastro.");
       }
     } catch (err: any) {
       console.error("Auth Error:", err);
-      setError(err.message || "Authentication failed. Please check your credentials.");
+      setError(err.message || "Erro de autenticação. Verifique suas credenciais.");
     } finally {
       setIsLoading(false);
     }
@@ -44,13 +46,10 @@ const AuthForm: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      if (!isConfigured) {
-        throw new Error("Supabase Keys missing in Vercel environment.");
-      }
       await signInWithGoogle();
     } catch (err: any) {
       console.error("Google Auth Error:", err);
-      setError(err.message || "Could not connect to Google.");
+      setError(err.message || "Não foi possível conectar ao Google.");
       setIsLoading(false);
     }
   };
@@ -77,12 +76,12 @@ const AuthForm: React.FC = () => {
             {isLogin ? t('welcome') : t('createAccount')}
           </h2>
           <p className="text-slate-500 font-medium text-sm">
-            {isLogin ? 'Professional Conservatory Environment' : 'Join our network of elite composers'}
+            Ambiente Profissional MaestroFlow
           </p>
         </div>
 
         {error && (
-          <div className={`mb-6 p-4 rounded-2xl flex items-start space-x-3 text-xs animate-in fade-in zoom-in duration-300 ${error.includes('confirmation') ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+          <div className={`mb-6 p-4 rounded-2xl flex items-start space-x-3 text-xs animate-in fade-in zoom-in duration-300 ${error.includes('confirmar') ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <p className="font-bold leading-relaxed">{error}</p>
           </div>
@@ -93,18 +92,18 @@ const AuthForm: React.FC = () => {
           disabled={isLoading}
           className={`w-full flex items-center justify-center space-x-4 px-6 py-4 border-2 border-slate-100 rounded-2xl hover:bg-slate-50 hover:border-indigo-100 transition-all mb-8 font-bold text-slate-700 relative group ${isLoading ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
         >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/smartlock/google.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" alt="Google" />
-          <span>{isLoading ? 'Connecting...' : t('continueGoogle')}</span>
+          <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" className="w-5 h-5 group-hover:scale-110 transition-transform" alt="Google" />
+          <span>{isLoading ? 'Conectando...' : t('continueGoogle')}</span>
         </button>
 
         <div className="relative mb-8 text-center">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
-          <span className="relative px-4 bg-white text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Hub Credentials</span>
+          <span className="relative px-4 bg-white text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Credenciais de Acesso</span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
           <div className="space-y-2">
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Workstation Email</label>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail</label>
             <div className="relative">
               <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <input 
@@ -112,14 +111,14 @@ const AuthForm: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@conservatory.com"
+                placeholder="nome@exemplo.com"
                 disabled={isLoading}
                 className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-600/5 focus:bg-white focus:border-indigo-200 outline-none transition-all font-bold text-slate-700"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Secret Key</label>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha</label>
             <div className="relative">
               <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <input 
@@ -140,17 +139,17 @@ const AuthForm: React.FC = () => {
             className={`w-full py-5 bg-slate-900 text-white font-black rounded-2xl transition-all shadow-xl shadow-slate-200 flex items-center justify-center space-x-3 text-lg ${isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-indigo-600 hover:-translate-y-1 active:scale-95'}`}
           >
             {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-            <span>{isLoading ? 'Processing...' : (isLogin ? t('signIn') : t('createAccount'))}</span>
+            <span>{isLoading ? 'Processando...' : (isLogin ? t('signIn') : t('createAccount'))}</span>
           </button>
         </form>
 
         <div className="mt-10 text-center text-sm font-medium text-slate-500">
-          {isLogin ? "New to MaestroFlow?" : "Already established access?"} 
+          {isLogin ? "Novo por aqui?" : "Já possui acesso?"} 
           <button 
             onClick={() => { setIsLogin(!isLogin); setError(null); }}
             className="ml-2 text-indigo-600 font-black hover:underline underline-offset-4"
           >
-            {isLogin ? 'Register Access' : 'Sign In Hub'}
+            {isLogin ? 'Registrar Agora' : 'Entrar no Hub'}
           </button>
         </div>
       </div>

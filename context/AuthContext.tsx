@@ -3,8 +3,17 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types.ts';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+// Função auxiliar robusta para capturar variáveis de ambiente em diferentes contextos (Vite, Vercel, Node)
+const getEnvVar = (key: string): string => {
+  const env = (import.meta as any).env || {};
+  const processEnv = (window as any).process?.env || {};
+  const value = env[key] || processEnv[key] || '';
+  // Evita que strings literais "undefined" passem na validação
+  return value === 'undefined' ? '' : value;
+};
+
+const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL');
+const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +27,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Inicialização segura do cliente
 let supabase: SupabaseClient | null = null;
 const isConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
@@ -25,7 +35,7 @@ if (isConfigured) {
   try {
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } catch (e) {
-    console.error("Supabase init error:", e);
+    console.error("Erro crítico na inicialização do Supabase:", e);
   }
 }
 
@@ -38,7 +48,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       return;
     }
-    // Determinação de papel baseada no e-mail ou metadados
     const role = supabaseUser.email?.includes('admin') ? 'admin' : 'client';
     const newUser: User = {
       id: supabaseUser.id,
@@ -55,13 +64,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Buscar sessão inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleUserSession(session?.user ?? null);
       setLoading(false);
     });
 
-    // Escutar mudanças no estado de auth (Login/Logout/OAuth Redirect)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       handleUserSession(session?.user ?? null);
       setLoading(false);
@@ -71,7 +78,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithGoogle = async () => {
-    if (!supabase) throw new Error("Supabase não configurado.");
+    if (!supabase || !isConfigured) {
+      throw new Error("Supabase não configurado. Verifique as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no painel da Vercel.");
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -82,13 +91,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithEmail = async (email: string, pass: string) => {
-    if (!supabase) throw new Error("Supabase não configurado.");
+    if (!supabase || !isConfigured) throw new Error("Supabase não configurado.");
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
   };
 
   const signUpWithEmail = async (email: string, pass: string) => {
-    if (!supabase) throw new Error("Supabase não configurado.");
+    if (!supabase || !isConfigured) throw new Error("Supabase não configurado.");
     const { error } = await supabase.auth.signUp({ email, password: pass });
     if (error) throw error;
   };

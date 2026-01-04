@@ -12,16 +12,16 @@ const getEnvVar = (key: string): string => {
   ];
   
   for (const p of providers) {
-    if (p && p[key] && p[key] !== 'undefined') return p[key];
+    if (p && p[key] && p[key] !== 'undefined' && p[key] !== '') return p[key];
     const cleanKey = key.replace('VITE_', '');
-    if (p && p[cleanKey] && p[cleanKey] !== 'undefined') return p[cleanKey];
+    if (p && p[cleanKey] && p[cleanKey] !== 'undefined' && p[cleanKey] !== '') return p[cleanKey];
   }
   return '';
 };
 
-// Configurações do Supabase obtidas do ambiente (Vercel/Local)
-const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL');
-const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
+// Configurações do Supabase - Usando as chaves fornecidas como padrão para ativação imediata
+const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL') || 'https://gjizouagaskhelfghhhd.supabase.co';
+const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY') || 'sb_publishable_LckgGWV6XsD8T5uahcPdeA_B0xxOdwg';
 
 interface AuthContextType {
   user: User | null;
@@ -36,7 +36,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Verificação robusta de configuração
+// Verificação de configuração: agora deve retornar true devido aos fallbacks acima
 const isConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL.includes('supabase.co'));
 let supabase: any = null;
 
@@ -50,7 +50,7 @@ if (isConfigured) {
       }
     });
   } catch (e) {
-    console.error("Erro crítico na inicialização do Supabase:", e);
+    console.error("Erro na inicialização do Supabase:", e);
   }
 }
 
@@ -94,20 +94,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithEmail = async (email: string, pass: string): Promise<{ mfaRequired: boolean; factorId?: string }> => {
     if (!supabase) {
-      throw new Error("Conexão com banco de dados indisponível. Verifique as variáveis de ambiente VITE_SUPABASE no Vercel.");
+      throw new Error("Conexão com banco de dados indisponível.");
     }
 
-    // Tenta autenticação real. Se falhar, o Supabase retornará erro (não permite entrada com qualquer senha).
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
     
     if (error) {
       const msg = error.message === 'Invalid login credentials' 
-        ? 'Credenciais incorretas. Usuário não encontrado ou senha inválida no banco de dados.' 
+        ? 'Credenciais incorretas. Verifique se o usuário foi criado no painel do Supabase.' 
         : error.message;
       throw new Error(msg);
     }
     
-    // Verificação de MFA (Google Authenticator) via API oficial
     const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
     if (!factorsError && factors?.totp) {
       const totpFactor = factors.totp.find((f: any) => f.status === 'verified');
@@ -128,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       factorId: factorId
     });
     
-    if (error) throw new Error("Código do Google Authenticator inválido.");
+    if (error) throw new Error("Código de autenticação inválido.");
     handleUserSession(data.user);
   };
 

@@ -3,25 +3,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types.ts';
 import { createClient } from '@supabase/supabase-js';
 
-const getEnvVar = (key: string): string => {
-  const providers = [
-    (import.meta as any).env,
-    (window as any).process?.env,
-    (window as any).ENV,
-    window
-  ];
-  
-  for (const p of providers) {
-    if (p && p[key] && p[key] !== 'undefined' && p[key] !== '') return p[key];
-    const cleanKey = key.replace('VITE_', '');
-    if (p && p[cleanKey] && p[cleanKey] !== 'undefined' && p[cleanKey] !== '') return p[cleanKey];
-  }
-  return '';
-};
-
-// Configurações do Supabase - Usando as chaves fornecidas como padrão para ativação imediata
-const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL') || 'https://gjizouagaskhelfghhhd.supabase.co';
-const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY') || 'sb_publishable_LckgGWV6XsD8T5uahcPdeA_B0xxOdwg';
+// Configurações do Supabase - Hardcoded para garantir funcionamento imediato
+const SUPABASE_URL = 'https://gjizouagaskhelfghhhd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqaXpvdWFnYXNraGVsZmdoaGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTA3NTQsImV4cCI6MjA4MzAyNjc1NH0.6S9PyCPW93G7lsBF3Rk8GfJ0jDFXn30x2x_E-45F7ec';
 
 interface AuthContextType {
   user: User | null;
@@ -36,22 +20,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Verificação de configuração: agora deve retornar true devido aos fallbacks acima
-const isConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL.includes('supabase.co'));
+// Agora que as chaves estão presentes, o sistema está configurado
+const isConfigured = true;
 let supabase: any = null;
 
-if (isConfigured) {
-  try {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      }
-    });
-  } catch (e) {
-    console.error("Erro na inicialização do Supabase:", e);
-  }
+try {
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  });
+} catch (e) {
+  console.error("Erro na inicialização do Supabase:", e);
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -101,11 +83,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (error) {
       const msg = error.message === 'Invalid login credentials' 
-        ? 'Credenciais incorretas. Verifique se o usuário foi criado no painel do Supabase.' 
+        ? 'Credenciais incorretas. Verifique se o usuário existe no Supabase e se a senha está correta.' 
         : error.message;
       throw new Error(msg);
     }
     
+    // Verificação de MFA se habilitado
     const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
     if (!factorsError && factors?.totp) {
       const totpFactor = factors.totp.find((f: any) => f.status === 'verified');

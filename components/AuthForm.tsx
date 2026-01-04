@@ -5,7 +5,7 @@ import { useTranslation } from '../context/LanguageContext.tsx';
 import { ArrowLeft, Loader2, AlertCircle, Mail, Lock, ShieldCheck, KeyRound, Database, ShieldAlert, Sparkles } from 'lucide-react';
 
 const AuthForm: React.FC = () => {
-  const { signInWithEmail, signUpWithEmail, verifyMfa, signInDemo, isConfigured, user } = useAuth();
+  const { signInWithEmail, signInWithGoogle, signUpWithEmail, verifyMfa, signInDemo, isConfigured, user } = useAuth();
   const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [showMfa, setShowMfa] = useState(false);
@@ -50,6 +50,17 @@ const AuthForm: React.FC = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      setError(err.message || "Erro ao conectar com o Google.");
+      setIsLoading(false);
+    }
+  };
+
   const handleMfaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -87,27 +98,34 @@ const AuthForm: React.FC = () => {
         
         {!showMfa ? (
           <>
-            {/* Atalhos Demo discretos para quando não houver conexão */}
-            {!isConfigured && (
-              <div className="mb-8 relative z-10 opacity-60 hover:opacity-100 transition-opacity">
-                <div className="flex items-center space-x-2 mb-4">
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300">Acesso Rápido (Offline)</span>
-                  <div className="h-px bg-slate-50 flex-grow"></div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => signInDemo('admin')} className="flex-1 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-900 hover:text-white transition-all">Admin Demo</button>
-                  <button onClick={() => signInDemo('client')} className="flex-1 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-900 hover:text-white transition-all">Client Demo</button>
-                </div>
-              </div>
-            )}
-
-            <div className="text-center mb-10 relative z-10">
+            <div className="text-center mb-8 relative z-10">
               <h2 className="text-4xl font-black text-slate-900 font-serif mb-2 tracking-tight">
                 {isLogin ? "Entrar no Hub" : "Criar Acesso"}
               </h2>
               <p className="text-slate-500 font-medium text-xs">
                 {isConfigured ? "Sua conexão está protegida e criptografada." : "Configure o Supabase para ativar o login real."}
               </p>
+            </div>
+
+            {/* Google Login Button */}
+            <div className="mb-8 relative z-10">
+              <button
+                onClick={handleGoogleLogin}
+                disabled={isLoading || !isConfigured}
+                className="w-full py-4 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl transition-all shadow-sm flex items-center justify-center space-x-3 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] disabled:opacity-50"
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+                <span>{t('continueGoogle')}</span>
+              </button>
+
+              <div className="relative my-8">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-100"></div>
+                </div>
+                <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
+                  <span className="px-4 bg-white text-slate-300">ou use seu e-mail</span>
+                </div>
+              </div>
             </div>
 
             {error && (
@@ -149,18 +167,9 @@ const AuthForm: React.FC = () => {
                 className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl transition-all shadow-xl shadow-slate-200 flex items-center justify-center space-x-3 text-lg hover:bg-indigo-600 hover:-translate-y-1 active:scale-95 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
               >
                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
-                <span>{isLoading ? 'Cruzando Dados...' : (isLogin ? 'Entrar Agora' : 'Registrar')}</span>
+                <span>{isLoading ? 'Autenticando...' : (isLogin ? 'Entrar Agora' : 'Registrar')}</span>
               </button>
             </form>
-
-            {!isConfigured && (
-              <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center space-x-3 animate-pulse">
-                <ShieldAlert className="w-6 h-6 text-amber-500" />
-                <p className="text-[9px] font-bold text-amber-700 uppercase leading-tight tracking-tighter">
-                  Login Real Desativado: Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Vercel para conectar.
-                </p>
-              </div>
-            )}
 
             <div className="mt-10 text-center text-sm font-medium text-slate-400">
               {isLogin ? "Primeira vez?" : "Já tem conta?"} 

@@ -10,6 +10,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 interface AuthContextType {
   user: User | null;
   signInWithEmail: (email: string, pass: string) => Promise<{ mfaRequired: boolean; factorId?: string }>;
+  signInWithGoogle: () => Promise<void>;
   verifyMfa: (code: string, factorId: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string) => Promise<void>;
   signInDemo: (role: 'admin' | 'client') => void;
@@ -101,6 +102,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { mfaRequired: false };
   };
 
+  const signInWithGoogle = async () => {
+    if (!supabase) throw new Error("Supabase não configurado.");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+    if (error) throw error;
+  };
+
   const verifyMfa = async (code: string, factorId: string) => {
     if (!supabase) throw new Error("Supabase não configurado.");
 
@@ -150,6 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{ 
       user, 
       signInWithEmail, 
+      signInWithGoogle,
       signUpWithEmail, 
       signInDemo,
       verifyMfa,

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useTranslation } from '../context/LanguageContext.tsx';
-import { ArrowLeft, Loader2, AlertCircle, Mail, Lock, ShieldCheck, User as UserIcon, Sparkles, KeyRound, Database } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Mail, Lock, ShieldCheck, KeyRound, Database, ShieldAlert, Sparkles } from 'lucide-react';
 
 const AuthForm: React.FC = () => {
   const { signInWithEmail, signUpWithEmail, verifyMfa, signInDemo, isConfigured, user } = useAuth();
@@ -24,6 +24,11 @@ const AuthForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isConfigured) {
+      setError("Conexão Pendente: O banco de dados ainda não foi configurado no painel da Vercel.");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     
@@ -31,16 +36,15 @@ const AuthForm: React.FC = () => {
       if (isLogin) {
         const result = await signInWithEmail(email, password);
         if (result.mfaRequired) {
-          setCurrentFactorId(result.factorId || 'demo');
+          setCurrentFactorId(result.factorId || null);
           setShowMfa(true);
         }
       } else {
         await signUpWithEmail(email, password);
-        setError("Conta criada com sucesso! Verifique seu e-mail para ativar a conta antes de entrar.");
+        setError("Sucesso! Verifique seu e-mail para ativar sua conta antes de tentar o login.");
       }
     } catch (err: any) {
-      console.error("Auth Error:", err);
-      setError(err.message || "Erro de autenticação.");
+      setError(err.message || "Falha na comunicação com o servidor.");
     } finally {
       setIsLoading(false);
     }
@@ -61,7 +65,7 @@ const AuthForm: React.FC = () => {
 
   return (
     <div className="min-h-[85vh] flex flex-col items-center justify-center px-4 py-16 bg-white">
-      <div className="max-w-md w-full mb-8">
+      <div className="max-w-md w-full mb-8 flex justify-between items-center">
         <button 
           onClick={() => window.location.hash = '#/'}
           className="group flex items-center space-x-3 text-slate-400 hover:text-indigo-600 transition-all font-black text-xs uppercase tracking-[0.2em]"
@@ -71,6 +75,11 @@ const AuthForm: React.FC = () => {
           </div>
           <span>{t('backHome')}</span>
         </button>
+        
+        <div className={`flex items-center space-x-2 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest ${isConfigured ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+          <Database className="w-3 h-3" />
+          <span>{isConfigured ? 'Banco Online' : 'Modo Demo'}</span>
+        </div>
       </div>
 
       <div className="max-w-md w-full bg-white p-10 md:p-12 rounded-[3.5rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.08)] border border-slate-100 ring-1 ring-slate-100 relative overflow-hidden">
@@ -78,58 +87,46 @@ const AuthForm: React.FC = () => {
         
         {!showMfa ? (
           <>
-            {/* Demo Quick Access - Para desenvolvedores quando o banco não estiver configurado */}
-            <div className="mb-8 relative z-10">
-              <div className="flex items-center space-x-2 mb-4">
-                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300 flex items-center">
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  Fast Access (Demo)
-                </span>
-                <div className="h-px bg-slate-50 flex-grow"></div>
+            {/* Atalhos Demo discretos para quando não houver conexão */}
+            {!isConfigured && (
+              <div className="mb-8 relative z-10 opacity-60 hover:opacity-100 transition-opacity">
+                <div className="flex items-center space-x-2 mb-4">
+                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300">Acesso Rápido (Offline)</span>
+                  <div className="h-px bg-slate-50 flex-grow"></div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => signInDemo('admin')} className="flex-1 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-900 hover:text-white transition-all">Admin Demo</button>
+                  <button onClick={() => signInDemo('client')} className="flex-1 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-900 hover:text-white transition-all">Client Demo</button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => signInDemo('admin')} className="flex-1 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-indigo-600 transition-all shadow-sm">Admin Demo</button>
-                <button onClick={() => signInDemo('client')} className="flex-1 py-2.5 bg-white border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm">Client Demo</button>
-              </div>
-            </div>
+            )}
 
             <div className="text-center mb-10 relative z-10">
               <h2 className="text-4xl font-black text-slate-900 font-serif mb-2 tracking-tight">
-                {isLogin ? "Maestro Hub" : "Crie seu Acesso"}
+                {isLogin ? "Entrar no Hub" : "Criar Acesso"}
               </h2>
               <p className="text-slate-500 font-medium text-xs">
-                {isConfigured 
-                  ? "Conectado ao banco de dados oficial." 
-                  : "Modo Offline (Chaves Supabase ausentes)."}
+                {isConfigured ? "Sua conexão está protegida e criptografada." : "Configure o Supabase para ativar o login real."}
               </p>
             </div>
 
             {error && (
-              <div className={`mb-6 p-4 rounded-2xl flex items-start space-x-3 text-xs animate-in fade-in zoom-in duration-300 ${error.includes('sucesso') ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+              <div className={`mb-6 p-4 rounded-2xl flex items-start space-x-3 text-xs animate-in fade-in zoom-in duration-300 ${error.includes('Sucesso') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
                 <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <p className="font-bold leading-relaxed">{error}</p>
               </div>
             )}
 
-            {!isConfigured && isLogin && (
-              <div className="mb-8 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center space-x-3">
-                <Database className="w-5 h-5 text-amber-500" />
-                <p className="text-[10px] font-bold text-amber-700 leading-tight">
-                  Atenção: Credenciais de e-mail requerem configuração de API. Use os botões demo acima para testar agora.
-                </p>
-              </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Corporativo</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail</label>
                 <div className="relative">
                   <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                   <input 
                     type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                    placeholder="maestro@empresa.com"
-                    disabled={isLoading}
-                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-600/5 focus:bg-white focus:border-indigo-200 outline-none transition-all font-bold text-slate-700"
+                    placeholder="exemplo@maestroflow.com"
+                    disabled={isLoading || !isConfigured}
+                    className={`w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-600/5 focus:bg-white focus:border-indigo-200 outline-none transition-all font-bold text-slate-700 ${!isConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
@@ -140,28 +137,39 @@ const AuthForm: React.FC = () => {
                   <input 
                     type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    disabled={isLoading}
-                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-600/5 focus:bg-white focus:border-indigo-200 outline-none transition-all font-bold text-slate-700"
+                    disabled={isLoading || !isConfigured}
+                    className={`w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-600/5 focus:bg-white focus:border-indigo-200 outline-none transition-all font-bold text-slate-700 ${!isConfigured ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
               
               <button 
-                type="submit" disabled={isLoading}
-                className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl transition-all shadow-xl shadow-slate-200 flex items-center justify-center space-x-3 text-lg hover:bg-indigo-600 hover:-translate-y-1 active:scale-95 disabled:opacity-50"
+                type="submit" 
+                disabled={isLoading || !isConfigured}
+                className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl transition-all shadow-xl shadow-slate-200 flex items-center justify-center space-x-3 text-lg hover:bg-indigo-600 hover:-translate-y-1 active:scale-95 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
               >
-                {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-                <span>{isLoading ? 'Autenticando...' : (isLogin ? 'Entrar no Hub' : 'Confirmar Cadastro')}</span>
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+                <span>{isLoading ? 'Cruzando Dados...' : (isLogin ? 'Entrar Agora' : 'Registrar')}</span>
               </button>
             </form>
 
-            <div className="mt-10 text-center text-sm font-medium text-slate-500">
-              {isLogin ? "Não possui conta?" : "Já é cadastrado?"} 
+            {!isConfigured && (
+              <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center space-x-3 animate-pulse">
+                <ShieldAlert className="w-6 h-6 text-amber-500" />
+                <p className="text-[9px] font-bold text-amber-700 uppercase leading-tight tracking-tighter">
+                  Login Real Desativado: Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Vercel para conectar.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-10 text-center text-sm font-medium text-slate-400">
+              {isLogin ? "Primeira vez?" : "Já tem conta?"} 
               <button 
-                onClick={() => { setIsLogin(!isLogin); setError(null); }}
-                className="ml-2 text-indigo-600 font-black hover:underline underline-offset-4"
+                onClick={() => setIsLogin(!isLogin)}
+                disabled={!isConfigured}
+                className="ml-2 text-indigo-600 font-black hover:underline underline-offset-4 disabled:opacity-30"
               >
-                {isLogin ? 'Registrar Agora' : 'Voltar ao Login'}
+                {isLogin ? 'Crie seu Perfil' : 'Faça o Login'}
               </button>
             </div>
           </>
@@ -171,28 +179,19 @@ const AuthForm: React.FC = () => {
               <div className="mx-auto w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mb-6 shadow-inner ring-1 ring-indigo-100">
                 <ShieldCheck className="w-10 h-10" />
               </div>
-              <h2 className="text-3xl font-black text-slate-900 font-serif mb-2">Google Authenticator</h2>
-              <p className="text-slate-500 font-medium text-xs px-6">Insira o código de 6 dígitos gerado no seu dispositivo.</p>
+              <h2 className="text-3xl font-black text-slate-900 font-serif mb-2 tracking-tight">Dupla Verificação</h2>
+              <p className="text-slate-500 font-medium text-xs px-6">Insira o código gerado no seu aplicativo Google Authenticator.</p>
             </div>
 
-            {error && (
-              <div className="mb-6 p-4 rounded-2xl bg-red-50 text-red-600 border border-red-100 flex items-start space-x-3 text-xs">
-                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <p className="font-bold">{error}</p>
-              </div>
-            )}
-
             <form onSubmit={handleMfaSubmit} className="space-y-8">
-              <div className="space-y-3">
-                <div className="relative">
-                  <KeyRound className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300" />
-                  <input 
-                    type="text" maxLength={6} required value={mfaCode} onChange={(e) => setMfaCode(e.target.value)}
-                    placeholder="000000"
-                    autoFocus
-                    className="w-full pl-16 pr-8 py-6 bg-slate-50 border border-slate-100 rounded-[2rem] focus:ring-4 focus:ring-indigo-600/5 focus:bg-white focus:border-indigo-200 outline-none transition-all font-black text-slate-800 text-3xl tracking-[0.3em] text-center"
-                  />
-                </div>
+              <div className="relative">
+                <KeyRound className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300" />
+                <input 
+                  type="text" maxLength={6} required value={mfaCode} onChange={(e) => setMfaCode(e.target.value)}
+                  placeholder="000 000"
+                  autoFocus
+                  className="w-full pl-16 pr-8 py-6 bg-slate-50 border border-slate-100 rounded-[2rem] focus:ring-4 focus:ring-indigo-600/5 focus:bg-white focus:border-indigo-200 outline-none transition-all font-black text-slate-800 text-3xl tracking-[0.3em] text-center"
+                />
               </div>
 
               <button 
@@ -200,14 +199,14 @@ const AuthForm: React.FC = () => {
                 className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-100 flex items-center justify-center space-x-3 text-lg hover:bg-indigo-700 hover:-translate-y-1 active:scale-95 disabled:opacity-50"
               >
                 {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-                <span>Verificar Identidade</span>
+                <span>Validar Código</span>
               </button>
 
               <button 
                 type="button" onClick={() => setShowMfa(false)}
                 className="w-full py-4 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-600 transition-colors"
               >
-                Cancelar e Voltar
+                Voltar e Cancelar
               </button>
             </form>
           </div>

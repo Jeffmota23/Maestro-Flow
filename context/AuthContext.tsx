@@ -19,6 +19,7 @@ const getEnvVar = (key: string): string => {
   return '';
 };
 
+// Configurações do Supabase obtidas do ambiente (Vercel/Local)
 const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL');
 const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
@@ -35,14 +36,21 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const isConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+// Verificação robusta de configuração
+const isConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL.includes('supabase.co'));
 let supabase: any = null;
 
 if (isConfigured) {
   try {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    });
   } catch (e) {
-    console.error("Supabase initialization failed.");
+    console.error("Erro crítico na inicialização do Supabase:", e);
   }
 }
 
@@ -68,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (supabase) {
       supabase.auth.getSession().then(({ data: { session }, error }: any) => {
-        if (error) console.error("Session fetch error:", error);
+        if (error) console.error("Erro ao recuperar sessão:", error);
         handleUserSession(session?.user ?? null);
         setLoading(false);
       });
@@ -86,24 +94,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithEmail = async (email: string, pass: string): Promise<{ mfaRequired: boolean; factorId?: string }> => {
     if (!supabase) {
-      throw new Error("Sistema em modo demonstração. Utilize os botões 'Fast Access' para testar, pois as chaves do banco (Supabase) não foram detectadas.");
+      throw new Error("Conexão com banco de dados indisponível. Verifique as variáveis de ambiente VITE_SUPABASE no Vercel.");
     }
 
+    // Tenta autenticação real. Se falhar, o Supabase retornará erro (não permite entrada com qualquer senha).
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
     
     if (error) {
-      // Aqui o Supabase retorna erro real se o e-mail ou senha estiverem errados
-      throw new Error("Credenciais inválidas. Verifique seu e-mail e senha no banco de dados.");
+      const msg = error.message === 'Invalid login credentials' 
+        ? 'Credenciais incorretas. Usuário não encontrado ou senha inválida no banco de dados.' 
+        : error.message;
+      throw new Error(msg);
     }
     
-    // Verificar se o usuário tem MFA habilitado (TOTP/Google Authenticator)
+    // Verificação de MFA (Google Authenticator) via API oficial
     const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
-    if (factorsError) throw factorsError;
-
-    const totpFactor = factors.totp.find((f: any) => f.status === 'verified');
-    
-    if (totpFactor) {
-      return { mfaRequired: true, factorId: totpFactor.id };
+    if (!factorsError && factors?.totp) {
+      const totpFactor = factors.totp.find((f: any) => f.status === 'verified');
+      if (totpFactor) {
+        return { mfaRequired: true, factorId: totpFactor.id };
+      }
     }
     
     handleUserSession(data.user);
@@ -111,30 +121,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const verifyMfa = async (code: string, factorId: string) => {
-    if (!supabase) {
-      if (code === '123456') {
-        signInDemo('admin');
-        return;
-      }
-      throw new Error("Código demo inválido. Use 123456.");
-    }
+    if (!supabase) throw new Error("Supabase não configurado.");
 
     const { data, error } = await supabase.auth.mfa.challengeAndVerify({
       code,
       factorId: factorId
     });
     
-    if (error) throw new Error("Código do Authenticator inválido ou expirado.");
+    if (error) throw new Error("Código do Google Authenticator inválido.");
     handleUserSession(data.user);
   };
 
   const signUpWithEmail = async (email: string, pass: string) => {
-    if (!supabase) throw new Error("Configuração do Supabase necessária para registro real.");
+    if (!supabase) throw new Error("Banco de dados não configurado.");
     
     const { data, error } = await supabase.auth.signUp({ 
       email, 
       password: pass,
-      options: { data: { role: email.includes('admin') ? 'admin' : 'client' } }
+      options: { 
+        data: { 
+          role: email.includes('admin') ? 'admin' : 'client',
+          full_name: email.split('@')[0]
+        } 
+      }
     });
     if (error) throw error;
   };
@@ -142,9 +151,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInDemo = (role: 'admin' | 'client') => {
     const demoUser: User = {
       id: `demo-${role}`,
-      email: `${role}@maestroflow.demo`,
+      email: `${role}@maestro-demo.local`,
       role: role,
-      name: role === 'admin' ? 'Maestro Admin' : 'John Doe Client'
+      name: `Demo ${role.toUpperCase()}`
     };
     setUser(demoUser);
     setLoading(false);
